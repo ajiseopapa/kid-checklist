@@ -1,0 +1,127 @@
+@import "tailwindcss";
+
+:root {
+  /* === 파스텔 동물 친구 테마 토큰 === */
+  --color-cream: #FFF8EF;
+  --color-cream-deep: #FFEFDB;
+  --color-lavender: #ECE4FF;
+  --color-apricot: #FFB996;
+  --color-apricot-deep: #FF9D6E;
+  --color-mint: #A8E6CE;
+  --color-mint-deep: #7FD4AE;
+  --color-grape: #C9B8FF;
+  --color-grape-deep: #A78BFA;
+  --color-sun: #FFD93D;
+  --color-sun-deep: #FFC107;
+  --color-pink: #FFAAC9;
+  --color-sky: #9ED8FF;
+  --color-ink: #5B4636;
+  --color-ink-soft: #8C7B6B;
+  --color-card: #FFFFFF;
+  --radius-blob: 28px;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+}
+
+.bg-app {
+  background: linear-gradient(160deg, var(--color-cream) 0%, var(--color-cream-deep) 45%, var(--color-lavender) 100%);
+}
+
+body.bg-app {
+  min-height: 100vh;
+}
+
+.font-display {
+  font-family: 'Jua', sans-serif;
+}
+
+.font-body {
+  font-family: 'Gowun Dodum', sans-serif;
+}
+
+/* 둥글둥실 카드 */
+.blob-card {
+  border-radius: var(--radius-blob);
+  background: var(--color-card);
+  box-shadow: 0 6px 0 rgba(91, 70, 54, 0.08), 0 14px 30px -10px rgba(91, 70, 54, 0.18);
+}
+
+/* 손으로 꾹 눌렀을 때 느낌 */
+.press-pop {
+  transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.12s ease;
+}
+.press-pop:active {
+  transform: scale(0.94) translateY(2px);
+}
+
+@keyframes pop-in {
+  0% { transform: scale(0.5) rotate(-8deg); opacity: 0; }
+  60% { transform: scale(1.08) rotate(3deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.animate-pop-in {
+  animation: pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes stamp {
+  0% { transform: scale(2.2) rotate(-20deg); opacity: 0; }
+  50% { transform: scale(0.9) rotate(8deg); opacity: 1; }
+  70% { transform: scale(1.15) rotate(-4deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.animate-stamp {
+  animation: stamp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes float-y {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+.animate-float {
+  animation: float-y 3s ease-in-out infinite;
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-4deg); }
+  75% { transform: rotate(4deg); }
+}
+.animate-wiggle {
+  animation: wiggle 0.4s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop-in, .animate-stamp, .animate-float, .animate-wiggle {
+    animation: none !important;
+  }
+  .press-pop {
+    transition: none !important;
+  }
+}
+
+/* 스크롤바를 부드럽게 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-apricot);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 키보드 포커스 표시 */
+:focus-visible {
+  outline: 3px solid var(--color-grape-deep);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
