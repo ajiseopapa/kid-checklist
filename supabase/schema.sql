@@ -40,6 +40,7 @@ create table if not exists tasks (
   kid_id uuid references kids(id) on delete cascade, -- null이면 전체 공통 일과
   title text not null,
   icon text not null default '✅',
+  time_slot text not null default 'anytime', -- 'morning' | 'afternoon' | 'evening' | 'anytime'
   sort_order int not null default 0,
   active boolean not null default true,
   created_at timestamptz not null default now()

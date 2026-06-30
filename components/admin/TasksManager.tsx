@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Kid, Task } from "@/lib/types";
+import { Kid, Task, TIME_SLOTS, TimeSlot } from "@/lib/types";
 import { AdminSection, AdminInput, AdminButton, EmptyRow } from "@/components/admin/AdminUI";
 
 const ICON_OPTIONS = ["✅", "🛏️", "🦷", "📚", "🧸", "🍽️", "🚿", "👕", "🐶", "🌱", "🎒", "✏️"];
@@ -20,6 +20,7 @@ export function TasksManager({
   const [newTitle, setNewTitle] = useState("");
   const [newIcon, setNewIcon] = useState(ICON_OPTIONS[0]);
   const [newKidId, setNewKidId] = useState<string>("all");
+  const [newTimeSlot, setNewTimeSlot] = useState<TimeSlot>("anytime");
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -40,6 +41,7 @@ export function TasksManager({
         title: newTitle.trim(),
         icon: newIcon,
         kid_id: newKidId === "all" ? null : newKidId,
+        time_slot: newTimeSlot,
         sort_order: maxOrder + 1,
         active: true,
       });
@@ -47,6 +49,7 @@ export function TasksManager({
         setNewTitle("");
         setNewIcon(ICON_OPTIONS[0]);
         setNewKidId("all");
+        setNewTimeSlot("anytime");
         await onChange();
       }
     } finally {
@@ -69,7 +72,7 @@ export function TasksManager({
     try {
       await supabase
         .from("tasks")
-        .update({ title: task.title, icon: task.icon, kid_id: task.kid_id })
+        .update({ title: task.title, icon: task.icon, kid_id: task.kid_id, time_slot: task.time_slot })
         .eq("id", task.id);
       setEditingId(null);
       await onChange();
@@ -109,6 +112,22 @@ export function TasksManager({
               style={{ background: newIcon === icon ? "var(--color-grape)" : "white" }}
             >
               {icon}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1.5">
+          {TIME_SLOTS.map((slot) => (
+            <button
+              key={slot.key}
+              type="button"
+              onClick={() => setNewTimeSlot(slot.key)}
+              className="press-pop flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-xs font-display"
+              style={{
+                background: newTimeSlot === slot.key ? slot.color : "white",
+              }}
+            >
+              <span>{slot.icon}</span>
+              <span>{slot.label}</span>
             </button>
           ))}
         </div>
@@ -154,8 +173,13 @@ export function TasksManager({
                   <div className="text-xl shrink-0">{task.icon}</div>
                   <div className="flex-1 min-w-0">
                     <p className="font-display text-sm truncate">{task.title}</p>
-                    <p className="text-xs" style={{ color: "var(--color-ink-soft)" }}>
-                      {kidLabel(task.kid_id)}
+                    <p className="text-xs flex items-center gap-1" style={{ color: "var(--color-ink-soft)" }}>
+                      <span>
+                        {TIME_SLOTS.find((s) => s.key === (task.time_slot ?? "anytime"))?.icon}{" "}
+                        {TIME_SLOTS.find((s) => s.key === (task.time_slot ?? "anytime"))?.label}
+                      </span>
+                      <span>·</span>
+                      <span>{kidLabel(task.kid_id)}</span>
                     </p>
                   </div>
                 </div>
@@ -206,6 +230,7 @@ function EditTaskRow({
   const [title, setTitle] = useState(task.title);
   const [icon, setIcon] = useState(task.icon);
   const [kidId, setKidId] = useState<string>(task.kid_id ?? "all");
+  const [timeSlot, setTimeSlot] = useState<TimeSlot>(task.time_slot ?? "anytime");
 
   return (
     <div className="flex flex-col gap-2 p-3 rounded-2xl" style={{ background: "var(--color-lavender)" }}>
@@ -219,6 +244,20 @@ function EditTaskRow({
             style={{ background: icon === i ? "var(--color-grape)" : "white" }}
           >
             {i}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-1.5">
+        {TIME_SLOTS.map((slot) => (
+          <button
+            key={slot.key}
+            type="button"
+            onClick={() => setTimeSlot(slot.key)}
+            className="press-pop flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-xs font-display"
+            style={{ background: timeSlot === slot.key ? slot.color : "white" }}
+          >
+            <span>{slot.icon}</span>
+            <span>{slot.label}</span>
           </button>
         ))}
       </div>
@@ -237,7 +276,9 @@ function EditTaskRow({
       </select>
       <div className="flex gap-2">
         <AdminButton
-          onClick={() => onSave({ ...task, title, icon, kid_id: kidId === "all" ? null : kidId })}
+          onClick={() =>
+            onSave({ ...task, title, icon, kid_id: kidId === "all" ? null : kidId, time_slot: timeSlot })
+          }
           disabled={busy || !title.trim()}
         >
           저장

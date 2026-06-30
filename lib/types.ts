@@ -8,11 +8,21 @@ export type Kid = {
   created_at: string;
 };
 
+export type TimeSlot = "morning" | "afternoon" | "evening" | "anytime";
+
+export const TIME_SLOTS: { key: TimeSlot; label: string; icon: string; color: string }[] = [
+  { key: "morning",   label: "아침",  icon: "🌅", color: "#FFD93D" },
+  { key: "afternoon", label: "점심",  icon: "☀️", color: "#FFB996" },
+  { key: "evening",   label: "저녁",  icon: "🌙", color: "#C9B8FF" },
+  { key: "anytime",   label: "언제든", icon: "✨", color: "#A8E6CE" },
+];
+
 export type Task = {
   id: string;
   kid_id: string | null;
   title: string;
   icon: string;
+  time_slot: TimeSlot;
   sort_order: number;
   active: boolean;
   created_at: string;

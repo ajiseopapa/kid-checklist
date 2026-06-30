@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Kid, Task, TaskLog, todayStr, formatKDate } from "@/lib/types";
+import { Kid, Task, TaskLog, TimeSlot, TIME_SLOTS, todayStr, formatKDate } from "@/lib/types";
 import { fireConfetti, fireBigConfetti } from "@/components/confetti";
 
 export function ChecklistView({
@@ -42,6 +42,18 @@ export function ChecklistView({
   const allDone = total > 0 && doneCount === total;
   const progress = total === 0 ? 0 : Math.round((doneCount / total) * 100);
 
+  // 시간대별 그룹핑
+  const slotGroups = useMemo(() => {
+    const groups: Record<TimeSlot, Task[]> = {
+      morning: [], afternoon: [], evening: [], anytime: [],
+    };
+    for (const t of kidTasks) {
+      const slot = t.time_slot ?? "anytime";
+      groups[slot].push(t);
+    }
+    return groups;
+  }, [kidTasks]);
+
   const handleToggle = async (taskId: string) => {
     if (busyTaskId) return;
     setBusyTaskId(taskId);
@@ -62,6 +74,7 @@ export function ChecklistView({
 
   return (
     <div className="px-4 sm:px-6 pb-10 max-w-2xl mx-auto w-full">
+      {/* 진행률 카드 */}
       <div className="blob-card p-5 mb-5">
         <div className="flex items-center justify-between mb-2">
           <p className="font-display text-lg">{formatKDate(today)}</p>
@@ -96,49 +109,67 @@ export function ChecklistView({
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
-          {kidTasks.map((task) => {
-            const done = doneMap[task.id];
-            const busy = busyTaskId === task.id;
+        <div className="flex flex-col gap-6">
+          {TIME_SLOTS.map((slot) => {
+            const slotTasks = slotGroups[slot.key];
+            if (slotTasks.length === 0) return null;
+            const slotDone = slotTasks.filter((t) => doneMap[t.id]).length;
             return (
-              <button
-                key={task.id}
-                onClick={() => handleToggle(task.id)}
-                disabled={busy}
-                className="blob-card press-pop flex items-center gap-4 p-4 text-left w-full"
-                style={
-                  done
-                    ? {
-                        background:
-                          "linear-gradient(135deg, var(--color-mint), #ffffff)",
-                      }
-                    : undefined
-                }
-              >
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shrink-0"
-                  style={{ background: done ? "white" : "var(--color-cream-deep)" }}
-                >
-                  {task.icon}
+              <div key={slot.key}>
+                {/* 시간대 헤더 */}
+                <div className="flex items-center gap-2 mb-3 px-1">
+                  <span className="text-xl">{slot.icon}</span>
+                  <span className="font-display text-base">{slot.label}</span>
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full font-bold ml-auto"
+                    style={{ background: slot.color + "55", color: "var(--color-ink)" }}
+                  >
+                    {slotDone}/{slotTasks.length}
+                  </span>
                 </div>
-                <span
-                  className={`font-display text-lg flex-1 ${done ? "opacity-60" : ""}`}
-                  style={done ? { textDecoration: "line-through" } : undefined}
-                >
-                  {task.title}
-                </span>
-                <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center text-xl shrink-0 ${
-                    done ? "animate-stamp" : ""
-                  }`}
-                  style={{
-                    background: done ? "var(--color-mint-deep)" : "white",
-                    border: done ? "none" : "2px solid var(--color-cream-deep)",
-                  }}
-                >
-                  {done ? "✓" : ""}
+                {/* 일과 목록 */}
+                <div className="flex flex-col gap-3">
+                  {slotTasks.map((task) => {
+                    const done = doneMap[task.id];
+                    const busy = busyTaskId === task.id;
+                    return (
+                      <button
+                        key={task.id}
+                        onClick={() => handleToggle(task.id)}
+                        disabled={busy}
+                        className="blob-card press-pop flex items-center gap-4 p-4 text-left w-full"
+                        style={
+                          done
+                            ? { background: "linear-gradient(135deg, var(--color-mint), #ffffff)" }
+                            : undefined
+                        }
+                      >
+                        <div
+                          className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shrink-0"
+                          style={{ background: done ? "white" : slot.color + "44" }}
+                        >
+                          {task.icon}
+                        </div>
+                        <span
+                          className={`font-display text-lg flex-1 ${done ? "opacity-60" : ""}`}
+                          style={done ? { textDecoration: "line-through" } : undefined}
+                        >
+                          {task.title}
+                        </span>
+                        <div
+                          className={`w-9 h-9 rounded-full flex items-center justify-center text-xl shrink-0 ${done ? "animate-stamp" : ""}`}
+                          style={{
+                            background: done ? "var(--color-mint-deep)" : "white",
+                            border: done ? "none" : "2px solid var(--color-cream-deep)",
+                          }}
+                        >
+                          {done ? "✓" : ""}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
