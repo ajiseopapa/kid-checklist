@@ -12,6 +12,7 @@ create extension if not exists "pgcrypto";
 create table if not exists app_settings (
   id int primary key default 1,
   admin_password text not null default '0000',
+  weekly_bonus_stars int not null default 5,
   constraint single_row check (id = 1)
 );
 
@@ -75,6 +76,18 @@ create table if not exists daily_rewards (
 );
 
 -- ----------------------------------------------
+-- 5b. 주간 보상(별) 지급 기록 - "이번 주 7일 전부 완벽 달성 시"
+-- ----------------------------------------------
+create table if not exists weekly_rewards (
+  id uuid primary key default gen_random_uuid(),
+  kid_id uuid not null references kids(id) on delete cascade,
+  week_start date not null, -- 그 주 월요일 날짜
+  stars_awarded int not null default 5,
+  created_at timestamptz not null default now(),
+  unique (kid_id, week_start)
+);
+
+-- ----------------------------------------------
 -- 6. 별 지급/차감 원장 (부모 선물, 상점 구매, 일일 보상 모두 기록)
 -- ----------------------------------------------
 create table if not exists star_transactions (
@@ -125,6 +138,7 @@ alter table kids enable row level security;
 alter table tasks enable row level security;
 alter table task_logs enable row level security;
 alter table daily_rewards enable row level security;
+alter table weekly_rewards enable row level security;
 alter table star_transactions enable row level security;
 alter table shop_items enable row level security;
 alter table purchases enable row level security;
@@ -134,6 +148,7 @@ create policy "allow all kids" on kids for all using (true) with check (true);
 create policy "allow all tasks" on tasks for all using (true) with check (true);
 create policy "allow all task_logs" on task_logs for all using (true) with check (true);
 create policy "allow all daily_rewards" on daily_rewards for all using (true) with check (true);
+create policy "allow all weekly_rewards" on weekly_rewards for all using (true) with check (true);
 create policy "allow all star_transactions" on star_transactions for all using (true) with check (true);
 create policy "allow all shop_items" on shop_items for all using (true) with check (true);
 create policy "allow all purchases" on purchases for all using (true) with check (true);

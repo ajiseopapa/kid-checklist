@@ -9,7 +9,10 @@ import {
   ShopItem,
   Purchase,
   StarTransaction,
+  WeeklyReward,
   todayStr,
+  getWeekStart,
+  getWeekDates,
 } from "@/lib/types";
 
 export function useAppData() {
@@ -20,6 +23,8 @@ export function useAppData() {
   const [shopItems, setShopItems] = useState<ShopItem[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [transactions, setTransactions] = useState<StarTransaction[]>([]);
+  const [weeklyRewards, setWeeklyRewards] = useState<WeeklyReward[]>([]);
+  const [weeklyBonusStars, setWeeklyBonusStars] = useState<number>(5);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +32,7 @@ export function useAppData() {
     setLoading(true);
     setError(null);
     try {
-      const [k, t, tl, si, p, st] = await Promise.all([
+      const [k, t, tl, si, p, st, wr, settings] = await Promise.all([
         supabase.from("kids").select("*").order("sort_order"),
         supabase.from("tasks").select("*").order("sort_order"),
         supabase
@@ -50,6 +55,12 @@ export function useAppData() {
           .select("*")
           .order("created_at", { ascending: false })
           .limit(500),
+        supabase
+          .from("weekly_rewards")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(100),
+        supabase.from("app_settings").select("weekly_bonus_stars").eq("id", 1).maybeSingle(),
       ]);
 
       if (k.error) throw k.error;
@@ -58,6 +69,8 @@ export function useAppData() {
       if (si.error) throw si.error;
       if (p.error) throw p.error;
       if (st.error) throw st.error;
+      // weekly_rewards, app_settings.weekly_bonus_stars는 마이그레이션 전이면
+      // 테이블/컬럼이 없을 수 있으니 에러여도 조용히 기본값으로 넘어가요.
 
       setKids(k.data ?? []);
       setTasks(t.data ?? []);
@@ -65,6 +78,12 @@ export function useAppData() {
       setShopItems(si.data ?? []);
       setPurchases(p.data ?? []);
       setTransactions(st.data ?? []);
+      setWeeklyRewards(wr.error ? [] : wr.data ?? []);
+      setWeeklyBonusStars(
+        !settings.error && settings.data?.weekly_bonus_stars != null
+          ? settings.data.weekly_bonus_stars
+          : 5
+      );
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "데이터를 불러오지 못했어요";
       setError(msg);
@@ -76,6 +95,77 @@ export function useAppData() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  // ---------- 별 적립/차감 (원장 기록 + 잔액 갱신) ----------
+  const addStars = useCallback(
+    async (
+      kidId: string,
+      amount: number,
+      reason: StarTransaction["reason"],
+      memo?: string
+    ) => {
+      const { data: tx, error: txErr } = await supabase
+        .from("star_transactions")
+        .insert({ kid_id: kidId, amount, reason, memo })
+        .select()
+        .single();
+      if (txErr) throw txErr;
+
+      const kid = kids.find((k) => k.id === kidId);
+      const newBalance = (kid?.star_balance ?? 0) + amount;
+      const { error: kidErr } = await supabase
+        .from("kids")
+        .update({ star_balance: newBalance })
+        .eq("id", kidId);
+      if (kidErr) throw kidErr;
+
+      setTransactions((prev) => [tx, ...prev]);
+      setKids((prev) =>
+        prev.map((k) => (k.id === kidId ? { ...k, star_balance: newBalance } : k))
+      );
+      return newBalance;
+    },
+    [supabase, kids]
+  );
+
+  // ---------- 주간 목표(7일 전부 완벽 달성) 보너스 체크 ----------
+  const checkWeeklyBonus = useCallback(
+    async (kidId: string, referenceDateStr: string) => {
+      const kidTasks = tasks.filter(
+        (t) => t.active && (t.kid_id === null || t.kid_id === kidId)
+      );
+      if (kidTasks.length === 0) return;
+
+      const weekStart = getWeekStart(new Date(referenceDateStr + "T00:00:00"));
+      const weekDates = getWeekDates(weekStart);
+
+      // 이미 이번 주 보너스를 받았다면 패스
+      if (weeklyRewards.some((w) => w.kid_id === kidId && w.week_start === weekStart)) {
+        return;
+      }
+
+      // 일별 보상이 7일 전부 기록돼 있으면(=완벽 달성 7일) 주간 보너스 지급
+      const { data: dailyRewardsInWeek, error } = await supabase
+        .from("daily_rewards")
+        .select("reward_date")
+        .eq("kid_id", kidId)
+        .in("reward_date", weekDates);
+
+      if (error || !dailyRewardsInWeek) return;
+      if (dailyRewardsInWeek.length < 7) return;
+
+      const { data: weeklyReward, error: wErr } = await supabase
+        .from("weekly_rewards")
+        .insert({ kid_id: kidId, week_start: weekStart, stars_awarded: weeklyBonusStars })
+        .select()
+        .single();
+      if (wErr || !weeklyReward) return;
+
+      setWeeklyRewards((prev) => [weeklyReward, ...prev]);
+      await addStars(kidId, weeklyBonusStars, "weekly_complete", "주간 목표 완벽 달성");
+    },
+    [supabase, tasks, weeklyRewards, weeklyBonusStars, addStars]
+  );
 
   // ---------- 체크 토글 + 일일 보상 처리 ----------
   const toggleTask = useCallback(
@@ -154,6 +244,7 @@ export function useAppData() {
         if (!rewardErr) {
           await addStars(kidId, 1, "daily_complete", "하루 일과 완료");
         }
+        await checkWeeklyBonus(kidId, date);
         return "completed";
       } else if (!allDone && existingReward) {
         // 체크 해제로 미완료 상태가 됐다면 지급 취소
@@ -162,40 +253,7 @@ export function useAppData() {
       }
       return "ok";
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [supabase, taskLogs, tasks]
-  );
-
-  // ---------- 별 적립/차감 (원장 기록 + 잔액 갱신) ----------
-  const addStars = useCallback(
-    async (
-      kidId: string,
-      amount: number,
-      reason: StarTransaction["reason"],
-      memo?: string
-    ) => {
-      const { data: tx, error: txErr } = await supabase
-        .from("star_transactions")
-        .insert({ kid_id: kidId, amount, reason, memo })
-        .select()
-        .single();
-      if (txErr) throw txErr;
-
-      const kid = kids.find((k) => k.id === kidId);
-      const newBalance = (kid?.star_balance ?? 0) + amount;
-      const { error: kidErr } = await supabase
-        .from("kids")
-        .update({ star_balance: newBalance })
-        .eq("id", kidId);
-      if (kidErr) throw kidErr;
-
-      setTransactions((prev) => [tx, ...prev]);
-      setKids((prev) =>
-        prev.map((k) => (k.id === kidId ? { ...k, star_balance: newBalance } : k))
-      );
-      return newBalance;
-    },
-    [supabase, kids]
+    [supabase, taskLogs, tasks, addStars, checkWeeklyBonus]
   );
 
   // ---------- 상점 구매 ----------
@@ -239,6 +297,19 @@ export function useAppData() {
     [supabase, kids, addStars]
   );
 
+  // ---------- 관리자: 주간 보너스 별 개수 설정 변경 ----------
+  const updateWeeklyBonusStars = useCallback(
+    async (newAmount: number) => {
+      const { error } = await supabase
+        .from("app_settings")
+        .update({ weekly_bonus_stars: newAmount })
+        .eq("id", 1);
+      if (error) throw error;
+      setWeeklyBonusStars(newAmount);
+    },
+    [supabase]
+  );
+
   return {
     kids,
     tasks,
@@ -246,12 +317,15 @@ export function useAppData() {
     shopItems,
     purchases,
     transactions,
+    weeklyRewards,
+    weeklyBonusStars,
     loading,
     error,
     reload: loadAll,
     toggleTask,
     addStars,
     purchaseItem,
+    updateWeeklyBonusStars,
     setKids,
     setTasks,
     setShopItems,

@@ -19,12 +19,14 @@ export default function Home() {
     taskLogs,
     shopItems,
     transactions,
+    weeklyBonusStars,
     loading,
     error,
     reload,
     toggleTask,
     addStars,
     purchaseItem,
+    updateWeeklyBonusStars,
   } = useAppData();
 
   const [selectedKidId, setSelectedKidId] = useState<string | null>(null);
@@ -111,11 +113,13 @@ export default function Home() {
             tasks={tasks}
             shopItems={shopItems}
             transactions={transactions}
+            weeklyBonusStars={weeklyBonusStars}
             onClose={() => setShowAdminPanel(false)}
             onReload={reload}
             onGiftStars={async (kidId, amount, memo) => {
               await addStars(kidId, amount, "parent_gift", memo);
             }}
+            onUpdateWeeklyBonusStars={updateWeeklyBonusStars}
           />
         </ErrorBoundary>
       )}

@@ -50,7 +50,7 @@ export type StarTransaction = {
   id: string;
   kid_id: string;
   amount: number;
-  reason: "daily_complete" | "parent_gift" | "shop_purchase" | "manual_adjust";
+  reason: "daily_complete" | "parent_gift" | "shop_purchase" | "manual_adjust" | "weekly_complete";
   memo: string | null;
   created_at: string;
 };
@@ -90,6 +90,14 @@ export const COLOR_OPTIONS = [
   { name: "스카이", value: "#9ED8FF" },
 ];
 
+export type WeeklyReward = {
+  id: string;
+  kid_id: string;
+  week_start: string; // 그 주 월요일 날짜
+  stars_awarded: number;
+  created_at: string;
+};
+
 export function todayStr(): string {
   const d = new Date();
   const tz = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
@@ -105,4 +113,25 @@ export function formatKDate(dateString: string): string {
   const d = new Date(dateString + "T00:00:00");
   const days = ["일", "월", "화", "수", "목", "금", "토"];
   return `${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+}
+
+/** 이번 주 월요일 날짜(YYYY-MM-DD)를 구해요. 월~일 기준 */
+export function getWeekStart(date: Date = new Date()): string {
+  const d = new Date(date);
+  const day = d.getDay(); // 0=일, 1=월 ... 6=토
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diffToMonday);
+  return dateStr(d);
+}
+
+/** 월요일 날짜 문자열로부터 그 주 7일(월~일) 날짜 배열을 구해요 */
+export function getWeekDates(weekStart: string): string[] {
+  const start = new Date(weekStart + "T00:00:00");
+  const out: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    out.push(dateStr(d));
+  }
+  return out;
 }

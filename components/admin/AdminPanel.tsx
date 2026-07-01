@@ -8,6 +8,7 @@ import { TasksManager } from "@/components/admin/TasksManager";
 import { ShopManager } from "@/components/admin/ShopManager";
 import { DataManager } from "@/components/admin/DataManager";
 import { PasswordChanger } from "@/components/admin/PasswordChanger";
+import { WeeklyBonusSettings } from "@/components/admin/WeeklyBonusSettings";
 
 type AdminTab = "kids" | "gift" | "tasks" | "shop" | "data" | "password";
 
@@ -16,17 +17,21 @@ export function AdminPanel({
   tasks,
   shopItems,
   transactions,
+  weeklyBonusStars,
   onClose,
   onReload,
   onGiftStars,
+  onUpdateWeeklyBonusStars,
 }: {
   kids: Kid[];
   tasks: Task[];
   shopItems: ShopItem[];
   transactions: StarTransaction[];
+  weeklyBonusStars: number;
   onClose: () => void;
   onReload: () => Promise<void>;
   onGiftStars: (kidId: string, amount: number, memo?: string) => Promise<void>;
+  onUpdateWeeklyBonusStars: (amount: number) => Promise<void>;
 }) {
   const [tab, setTab] = useState<AdminTab>("kids");
 
@@ -78,7 +83,12 @@ export function AdminPanel({
       <div className="px-4 sm:px-6 pb-16 max-w-2xl mx-auto w-full">
         {tab === "kids" && <KidsManager kids={kids} onChange={onReload} />}
         {tab === "gift" && <GiftStars kids={kids} onGift={onGiftStars} />}
-        {tab === "tasks" && <TasksManager tasks={tasks} kids={kids} onChange={onReload} />}
+        {tab === "tasks" && (
+          <>
+            <WeeklyBonusSettings weeklyBonusStars={weeklyBonusStars} onUpdate={onUpdateWeeklyBonusStars} />
+            <TasksManager tasks={tasks} kids={kids} onChange={onReload} />
+          </>
+        )}
         {tab === "shop" && <ShopManager shopItems={shopItems} onChange={onReload} />}
         {tab === "data" && <DataManager onReload={onReload} />}
         {tab === "password" && <PasswordChanger />}
@@ -100,6 +110,7 @@ function RecentTransactions({
 }) {
   const reasonLabel: Record<string, string> = {
     daily_complete: "✅ 일과 완료 보상",
+    weekly_complete: "🎯 주간 목표 보너스",
     parent_gift: "🎀 부모님 선물",
     shop_purchase: "🛍️ 상점 구매",
     manual_adjust: "⚙️ 조정",
